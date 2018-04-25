@@ -17,7 +17,7 @@ unsigned get_sym_freq(unsigned char sym) {
     return freq_table[sym];
 }
 
-unsigned analyze_file(FILE *fInput) {
+void analyze_file(FILE *fInput) {
     //the file is supposed to be successfully opened
     reset_freq_table();
     int char_num = 0;
@@ -27,53 +27,92 @@ unsigned analyze_file(FILE *fInput) {
             inbuf_next_byte();
         }
     }
-    unsigned file_size = ftell(fInput);
     rewind(fInput);
-    return file_size;
+}
+
+//checksum
+
+uint32_t crc32_for_byte(uint32_t r) {
+    for (int j = 0; j < 8; ++j) {
+        r = ((r & 1) ? 0 : (uint32_t)0xEDB88320L) ^ r >> 1;
+    }
+    return r ^ (uint32_t)0xFF000000L;
+}
+
+void crc32(const void *data, size_t n_bytes, uint32_t* crc) {
+    static uint32_t table[0x100];
+    if (!*table) {
+        for (size_t i = 0; i < 0x100; ++i) {
+            table[i] = crc32_for_byte(i);
+        }
+    }
+    for (size_t i = 0; i < n_bytes; ++i) {
+        *crc = table[(uint8_t)*crc ^ ((uint8_t*)data)[i]] ^ *crc >> 8;
+    }
+}
+
+uint32_t get_checksum(FILE *file) {
+    static char buf[1L << 15];
+    uint32_t crc = 0;
+    while (!feof(file) && !ferror(file)) {
+        crc32(buf, fread(buf, 1, sizeof(buf), file), &crc);
+    }
+    return crc;
 }
 
 //auxiliary stuff
 
-void print_freq_table(void) {
-    for (int i = 0; i < ALPH_SIZE; ++i) {
-        if (freq_table[i] > 0) {
-            printf("%c)  -  %u\n", i, freq_table[i]);
-        }
-    }
-    printf("\n");
+#define BUF_SIZE 1024
+
+static unsigned char copybuf[BUF_SIZE] = {0};
+
+void file_set_pos(FILE *file, unsigned pos) {
+    fseek(file, pos, SEEK_SET);
 }
 
-void print_file_len(void) {
-    unsigned long long len = 0;
-    for (unsigned i = 0; i < ALPH_SIZE; ++i) {
-        len += get_sym_freq(i) * strlen(get_code(i));
+unsigned file_copy_block(FILE *from, FILE *to, unsigned block_size) {
+    unsigned bytes_num = 0, bytes_total = 0;
+    for (; block_size > BUF_SIZE; block_size -= BUF_SIZE) {
+        bytes_num = fread(copybuf, sizeof(char), BUF_SIZE, from);
+        fwrite(copybuf, sizeof(char), bytes_num, to);
+        bytes_total += bytes_num;
+        if (bytes_num < BUF_SIZE) {
+            //in-file have reached the EOF
+            return bytes_total;
+        }
     }
-    printf("File's predicted length: %I64u bytes + %I64u bits\n",
-           len / CHAR_BIT, len % CHAR_BIT);
+    //read & write the remainder
+    bytes_num = fread(copybuf, sizeof(char), block_size, from);
+    fwrite(copybuf, sizeof(char), bytes_num, to);
+    bytes_total += bytes_num;
+    return bytes_total;
 }
 
-unsigned read_int_from_inbuf(FILE *fInput) {
-    unsigned int_val = 0;
-    for (unsigned bit_mask = 1u; bit_mask > 0; bit_mask <<= 1u) {
-        if (inbuf_get_bit()) {
-            int_val |= bit_mask;
-        }
-        if (inbuf_next_bit()) {
-            read_from_file(fInput);
-        }
-    }
-    return int_val;
+void file_shift_pos(FILE *file, unsigned shift) {
+    fseek(file, shift, SEEK_CUR);
 }
 
-void write_int_to_outbuf(FILE *fOutput, unsigned int_val) {
-    for (unsigned bit_mask = 1u; bit_mask > 0; bit_mask <<= 1u) {
-        if (int_val & bit_mask) {
-            outbuf_set_bit();
-        }
-        if (outbuf_next_bit()) {
-            write_to_file(fOutput);
-        }
+unsigned concat_files(FILE *to, FILE *from) {
+    unsigned bytes_num = 0, bytes_total = 0;
+    while ((bytes_num = fread(copybuf, sizeof(char), BUF_SIZE, from)) > 0) {
+        fwrite(copybuf, sizeof(char), bytes_num, to);
+        bytes_total += bytes_num;
     }
+    return bytes_total;
+}
+
+unsigned get_file_size(FILE *file) {
+    fseek(file, 0, SEEK_END);
+    unsigned file_size = ftell(file);
+    rewind(file);
+    return file_size;
+}
+
+void *file_close(FILE *file) {
+    if (file != NULL) {
+        fclose(file);
+    }
+    return NULL;
 }
 
 unsigned char read_char_from_inbuf(FILE *fInput) {
@@ -156,16 +195,8 @@ Tree *read_tree(FILE *fInput) {
 
 //encoding
 
-void write_file_header(FILE *fOutput, unsigned file_size, Tree *root) {
-    outbuf_reset(); //re-consider
-    //write file's size to the header
-    write_int_to_outbuf(fOutput, file_size);
-    //write the code tree to the file
-    write_tree(fOutput, root);
-}
-
 void encode(FILE *fInput, FILE *fOutput) {
-    inbuf_reset(); //re-consider
+    inbuf_reset();
     char *code = NULL;
     unsigned char_num = 0;
     while ((char_num = read_from_file(fInput)) > 0) {
@@ -176,17 +207,17 @@ void encode(FILE *fInput, FILE *fOutput) {
             write_code_to_outbuf(fOutput, code);
         }
     }
-    write_to_file(fOutput); //re-consider
+    write_to_file(fOutput);
 }
 
 void encode_file(FILE *fInput, FILE *fOutput) {
     //get characters' frequences & size of the file
-    unsigned file_size = analyze_file(fInput);
+    analyze_file(fInput);
     //build code tree & table
     Tree *root = build_code_tree();
     build_code_table(root);
     //write file header
-    write_file_header(fOutput, file_size, root);
+    write_tree(fOutput, root);
     //write encoded symbols to the buffer
     encode(fInput, fOutput);
     //free resources
@@ -194,18 +225,6 @@ void encode_file(FILE *fInput, FILE *fOutput) {
 }
 
 //decoding
-
-unsigned read_file_header(FILE *fInput, Tree **root) {
-    //read from file
-    read_from_file(fInput); //re-consider
-    //get the input file's size
-    unsigned file_size = read_int_from_inbuf(fInput);
-    if (file_size > 0) {
-        //read the code tree
-        *root = read_tree(fInput);
-    }
-    return file_size;
-}
 
 void decode(FILE *fInput, FILE *fOutput, unsigned file_size, Tree *root) {
     Tree *node = root;
@@ -231,14 +250,16 @@ void decode(FILE *fInput, FILE *fOutput, unsigned file_size, Tree *root) {
     write_to_file(fOutput);
 }
 
-unsigned decode_file(FILE *fInput, FILE *fOutput) {
+void decode_file(FILE *fInput, FILE *fOutput, unsigned file_size) {
     Tree *root = NULL;
     //read file header
-    unsigned file_size = read_file_header(fInput, &root);
+    read_from_file(fInput); //re-consider
+    if (file_size > 0) {
+        //read the code tree
+        root = read_tree(fInput);
+    }
     //decode the input file
     decode(fInput, fOutput, file_size, root);
     //free resources
     tree_destroy(root);
-
-    return file_size;
 }

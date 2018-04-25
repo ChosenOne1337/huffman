@@ -1,42 +1,77 @@
 #include <stdio.h>
 #include <stdlib.h>
-#include <time.h>
-#include "file_processing.h"
-#include "huffman_tree.h"
+#include <string.h>
+#include <libgen.h>
+#include "archiver.h"
+
+void print_info(void) {
+    printf("Info:\n");
+}
+
+void print_usage(char *app_path) {
+    char *app_name = basename(app_path);
+    printf("\n\tUsage:\n\n"
+           ">> %s [-h]: \n\tprint application information;\n\n"
+           ">> %s [-a] file_1 .. file_n: \n\tadd files to an existing archive (create it otherwise);\n\n"
+           ">> %s [-x] file_1 .. file_n: \n\textract files from an existing archive;\n\n"
+           ">> %s [-xall]: \n\textract all files from an existing archive;\n\n"
+           ">> %s [-d] file_1 .. file_n: \n\tdelete files from an existing archive;\n\n"
+           ">> %s [-dall]: \n\tdelete all files from an existing archive;\n\n"
+           ">> %s [-l]: \n\ttest archive integrity;\n\n"
+           ">> %s [-t]: \n\tprint archive information.\n\n",
+            app_name, app_name, app_name, app_name, app_name,
+            app_name, app_name, app_name);
+}
 
 int main(int argc, char *argv[])
 {
-    if (argc != 4) {
-        fprintf(stderr, "Incorrect parameters!\n");
-        return 0;
+    //print info
+    if (argc >= 2 && !strcmp(argv[1], "-h")) {
+        print_info();
+        exit(0);
     }
-
-    FILE *fInput = fopen(argv[2], "rb");
-    if (fInput == NULL) {
-        fprintf(stderr, "Failed to open %s!\n", argv[2]);
-        exit(1);
+    //print usage
+    if (argc <= 2) {
+        print_usage(argv[0]);
+        exit(0);
     }
-    FILE *fOutput = fopen(argv[3], "wb");
-    if (fOutput == NULL) {
-        fprintf(stderr, "Failed to open %s!\n", argv[3]);
-        fclose(fInput);
-        exit(1);
+    MenuOption opt = InvalidOption;
+    //add to archive
+    if (!strcmp(argv[1], "-a")) {
+        opt = AddToArchive;
     }
-
-    if (!strcmp(argv[1], "-c")) {
-        encode_file(fInput, fOutput);
-        printf("Done!\n");
+    //extract from archive
+    else if (!strcmp(argv[1], "-x")) {
+        opt = ExtractFromArchive;
     }
+    //extract all files from archive
+    else if (!strcmp(argv[1], "-xall")) {
+        opt = ExtractAll;
+    }
+    //remove from archive
     else if (!strcmp(argv[1], "-d")) {
-        decode_file(fInput, fOutput);
-        printf("Done!\n");
+        opt = RemoveFromArchive;
+    }
+    //remove all files from archive
+    else if (!strcmp(argv[1], "-dall")) {
+        opt = RemoveFromArchive;
+    }
+    //check archive's integrity
+    else if (!strcmp(argv[1], "-t")) {
+        opt = CheckIntegrity;
+    }
+    //print archive's info
+    else if (!strcmp(argv[1], "-l")) {
+        opt = PrintInfo;
+    }
+
+    if (opt == InvalidOption) {
+        //print usage
+        print_usage(argv[0]);
     }
     else {
-        printf("Incorrect options!\n");
+        choice_menu(argv[2], argv + 3, argc - 3, opt);
     }
-
-    fclose(fInput);
-    fclose(fOutput);
 
     return 0;
 }

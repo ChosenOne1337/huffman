@@ -2,7 +2,7 @@
 #include <string.h>
 #include "binary_buffer.h"
 
-#define BUF_SIZE 16384
+#define BUF_SIZE 1024
 
 unsigned char inbuf[BUF_SIZE] = {0};
 unsigned char outbuf[BUF_SIZE] = {0};
