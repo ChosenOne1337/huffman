@@ -1,8 +1,8 @@
 #include <stdlib.h>
 #include <string.h>
-#include "huffman_tree.h"
 #include "priority_queue.h"
-#include "file_processing.h"
+#include "huffman_tree.h"
+#include "huffman_coding.h"
 
 #define MAX_CODE_LEN 64
 

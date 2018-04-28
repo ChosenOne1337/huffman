@@ -1,8 +1,6 @@
 #ifndef ARCHIVER_H
 #define ARCHIVER_H
 
-#include <stdio.h>
-
 typedef enum MenuOption {
     AddToArchive,
     ExtractFromArchive,

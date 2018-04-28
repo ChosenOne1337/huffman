@@ -6,6 +6,7 @@
 #include "archiver.h"
 #include "file_processing.h"
 #include "huffman_tree.h"
+#include "huffman_coding.h"
 
 //print message & error
 
@@ -242,7 +243,7 @@ int create_archive(const char *arch_name) {
 
 char strbuf[FILENAME_LEN] = {0};
 
-char *get_file_name(const char *format, ...) {
+char *make_file_name(const char *format, ...) {
     va_list argptr;
     va_start(argptr, format);
     vsnprintf(strbuf, FILENAME_LEN, format, argptr);
@@ -416,8 +417,8 @@ void print_arch_info(FILE *arch, char *arch_name) {
         //compressed file size
         print_msg("\t*Compressed file size: %u bytes\n", file_header->comp_size[i]);
         //compression ratio
-        print_msg("\t*Compression: %u%%\n",
-               (unsigned)((1.0 - (double)file_header->comp_size[i] / file_header->file_size[i]) * 100.0));
+        print_msg("\t*Compression: %d%%\n", (file_header->comp_size[i] >= file_header->file_size[i]) ?
+                    0 : (int)((1.0 - (double)file_header->comp_size[i] / file_header->file_size[i]) * 100.0));
         //add time
         print_msg("\t*Add time: %s\n", ctime(&file_header->add_time[i]));
     }

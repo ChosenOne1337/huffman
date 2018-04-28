@@ -12,13 +12,13 @@ void print_usage(char *app_path) {
     char *app_name = basename(app_path);
     printf("\n\tUsage:\n\n"
            ">> %s [-h]: \n\tprint application information;\n\n"
-           ">> %s [-a] file_1 .. file_n: \n\tadd files to an existing archive (create it otherwise);\n\n"
-           ">> %s [-x] file_1 .. file_n: \n\textract files from an existing archive;\n\n"
-           ">> %s [-xall]: \n\textract all files from an existing archive;\n\n"
-           ">> %s [-d] file_1 .. file_n: \n\tdelete files from an existing archive;\n\n"
-           ">> %s [-dall]: \n\tdelete all files from an existing archive;\n\n"
-           ">> %s [-l]: \n\ttest archive integrity;\n\n"
-           ">> %s [-t]: \n\tprint archive information.\n\n",
+           ">> %s [-a] archive_file file_1 .. file_n: \n\tadd files to an existing archive (create it otherwise);\n\n"
+           ">> %s [-x] archive_file file_1 .. file_n: \n\textract files from an existing archive;\n\n"
+           ">> %s [-xall] archive_file: \n\textract all files from an existing archive;\n\n"
+           ">> %s [-d] archive_file file_1 .. file_n: \n\tdelete files from an existing archive;\n\n"
+           ">> %s [-dall] archive_file: \n\tdelete all files from an existing archive;\n\n"
+           ">> %s [-l] archive_file: \n\ttest archive integrity;\n\n"
+           ">> %s [-t] archive_file: \n\tprint archive information.\n\n",
             app_name, app_name, app_name, app_name, app_name,
             app_name, app_name, app_name);
 }
